@@ -5,46 +5,17 @@ import (
 
 	"github.com/hornosg/wa-messaging-gateway/src/contract"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/riverdriver/riverpgxv5"
-	"github.com/riverqueue/river/rivermigrate"
 )
 
-// RiverQueue — adaptador del puerto MessageQueue sobre River (STACK-04).
-// Productor: solo inserta jobs; los workers los registra el agent-runtime (E04).
+// RiverQueue — adaptador del puerto MessageQueue: inserta el job inbound en River
+// (cola "inbound"). El cliente River lo crea y administra main (también consume outbound).
 type RiverQueue struct {
-	pool   *pgxpool.Pool
 	client *river.Client[pgx.Tx]
 }
 
-// NewRiverQueue crea el pool, aplica las migraciones de River y devuelve el adaptador
-// junto con una función de cierre.
-func NewRiverQueue(ctx context.Context, dsn string) (*RiverQueue, func(), error) {
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	driver := riverpgxv5.New(pool)
-
-	migrator, err := rivermigrate.New(driver, nil)
-	if err != nil {
-		pool.Close()
-		return nil, nil, err
-	}
-	if _, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
-		pool.Close()
-		return nil, nil, err
-	}
-
-	client, err := river.NewClient(driver, &river.Config{})
-	if err != nil {
-		pool.Close()
-		return nil, nil, err
-	}
-
-	return &RiverQueue{pool: pool, client: client}, func() { pool.Close() }, nil
+func NewRiverQueue(client *river.Client[pgx.Tx]) *RiverQueue {
+	return &RiverQueue{client: client}
 }
 
 func (q *RiverQueue) Enqueue(ctx context.Context, m InboundMessage) error {
@@ -55,6 +26,6 @@ func (q *RiverQueue) Enqueue(ctx context.Context, m InboundMessage) error {
 		To:                m.To,
 		Text:              m.Text,
 		ReceivedAt:        m.ReceivedAt,
-	}, nil)
+	}, &river.InsertOpts{Queue: contract.QueueInbound})
 	return err
 }

@@ -15,7 +15,10 @@ type Config struct {
 	DBPassword         string
 	DBSSLMode          string
 	KapsoWebhookSecret string // RULE-05: verificación de firma del webhook
-	QueueDriver        string // "river" (real) | "log" (dev: solo loguea el encolado)
+	KapsoDriver        string // "kapso" (real) | "stub" (dev: loguea en vez de enviar)
+	KapsoAPIKey        string
+	KapsoBaseURL       string
+	MaxWorkers         int
 }
 
 func Load() Config {
@@ -28,7 +31,10 @@ func Load() Config {
 		DBPassword:         env("DB_PASSWORD", "whatsapp_agent"),
 		DBSSLMode:          env("DB_SSLMODE", "disable"),
 		KapsoWebhookSecret: env("KAPSO_WEBHOOK_SECRET", ""),
-		QueueDriver:        env("QUEUE_DRIVER", "river"),
+		KapsoDriver:        env("KAPSO_DRIVER", "kapso"),
+		KapsoAPIKey:        os.Getenv("KAPSO_API_KEY"),
+		KapsoBaseURL:       os.Getenv("KAPSO_BASE_URL"),
+		MaxWorkers:         5,
 	}
 }
 
